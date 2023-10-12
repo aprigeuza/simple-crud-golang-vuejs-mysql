@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>My Contact - GO (Echo) & VueJs With MySQL Database</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="shortcut icon" href="https://echo.labstack.com/img/favicon.ico" type="image/x-icon">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+  <style>
+    .w400 {
+      width: 400px;
+    }
+    .hoverme:hover{
+      cursor: pointer;
+      background-color: #f7f7f7;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <div class="container mt-3 w400">
+      <h2>My Contacts</h2>
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-12">
+              <span class="text-center mb-0 pb-0">{{ message }}</span>
+              <form action="/action_page.php">
+                <div class="mb-3 mt-3">
+                  <label for="name">Name:</label>
+                  <input v-model="fName" type="text" class="form-control" id="name" placeholder="Enter Name" name="name">
+                </div>
+                <div class="mb-3">
+                  <label for="phone_no">Phone No.:</label>
+                  <input v-model="fPhoneNo" type="text" class="form-control" id="phone_no" placeholder="Enter Phone No." name="phone_no">
+                </div>
+                <button type="button" class="btn btn-primary mx-1" v-on:click="saveContact()">Save</button>
+                <button type="button" class="btn btn-warning mx-1" v-on:click="clearForm()">Clear</button>
+                <button type="button" class="btn btn-danger float-end mx-1" v-on:click="deleteContact()">Delete</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <select v-model="dList" class="form-control mb-2" style="max-width: 150px;">
+            <option value="list">List</option>
+            <option value="table">Table</option>
+          </select>
+        </div>
+        <div class="col">
+          <input type="text" v-model="search" class="form-control" placeholder="Search">
+        </div>
+      </div>
+
+
+      <div class="row">
+        <div class="col">
+
+          <div class="alert alert-warning" v-if="searchResult.length == 0">Data Not Found</div>
+          
+          <table class="table table-bordered table-hover w-100" v-if="dList == 'table'">
+            <thead>
+              <tr>
+                <th>#Id</th>
+                <th>Name</th>
+                <th>Phone No.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="contact in searchResult" v-on:dblclick="editContact(contact)" style="cursor: pointer;">
+                <td>{{ contact.id }}</td>
+                <td>{{ contact.name }}</td>
+                <td>{{ contact.phone_no }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="pe-1" v-if="dList == 'list'">
+              <div class="list-group">
+              <a href="javascript:;" title="Double Click to edit this record" class="list-group-item hoverme" v-for="contact in searchResult" v-on:dblclick="editContact(contact)" style="cursor: pointer;">
+                <small>{{ contact.name }}</small>
+                <h3 class="font-monospace">{{ contact.phone_no }}</h3>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+  <script>
+    console.log(axios);
+    const { createApp, ref, reactive, computed } = Vue
+
+    createApp({
+      data() {
+        return {
+          message: "",
+          contacts: [],
+          fId: 0,
+          fName: "",
+          fPhoneNo: "",
+          dList: "list",
+          search: "",
+        }
+      },
+      computed: {
+        searchResult(){
+          const _c = this.contacts.filter(item => item.name.toLowerCase().includes(this.search));
+
+          return _c
+        }
+
+      },
+      methods: {
+        async getContacts() {
+          const apiUrl = "/contact/list";
+          await axios.get(apiUrl)
+            .then(
+              (response) => {
+                if (response.status !== 200) {
+                  console.log('Looks like there was a problem. Status Code: ' + response.status);
+                  return;
+                }
+
+                const resData = response.data;
+
+                console.log(resData.data);
+                this.contacts = resData.data.contacts;
+              }
+            )
+            .catch(function (err) {
+              console.log('Fetch Error :-S', err);
+            });
+
+        },
+        editContact(data) {
+          this.fId = data.id;
+          this.fName = data.name;
+          this.fPhoneNo = data.phone_no;
+          this.message = "";
+        },
+        saveContact() {
+          if (this.fId == "") {
+            this.addContact()
+          } else {
+            this.updateContact()
+          }
+        },
+        async addContact() {
+          this.message = ""
+
+          const apiUrl = "/contact/add";
+          var data = new FormData();
+          data.append("name", this.fName)
+          data.append("phone_no", this.fPhoneNo)
+
+          const config = {
+            headers: { "Content-Type": "multipart/form-data" }
+          }
+          await axios.post(apiUrl, data, config)
+            .then(
+              (response) => {
+                if (response.status !== 200) {
+                  console.log('Looks like there was a problem. Status Code: ' + response.status);
+                  return;
+                }
+
+                this.message = response.data.message
+
+                this.clearForm()
+
+                this.getContacts()
+              }
+            )
+            .catch((err) => {
+              console.log('Fetch Error :-S', err.response.data.message);
+
+              this.message = err.response.data.message
+            });
+        },
+        async updateContact() {
+          this.message = ""
+          if(this.fId == ""){
+            this.message = "Select contact!"
+            return;
+          }
+
+          const apiUrl = "/contact/update";
+          var data = new FormData();
+          data.append("id", this.fId)
+          data.append("name", this.fName)
+          data.append("phone_no", this.fPhoneNo)
+
+          const config = {
+            headers: { "Content-Type": "multipart/form-data" }
+          }
+          await axios.putForm(apiUrl, data, config)
+            .then(
+              (response) => {
+                if (response.status !== 200) {
+                  console.log('Looks like there was a problem. Status Code: ' + response.status);
+                  return;
+                }
+
+                this.message = response.data.message
+
+                this.clearForm()
+
+                this.getContacts()
+              }
+            )
+            .catch((err) => {
+              console.log('Fetch Error :-S', err.response.data.message);
+
+              this.message = err.response.data.message
+            });
+        },
+        async deleteContact() {
+          this.message = ""
+          if(this.fId == ""){
+            this.message = "Select contact!"
+            return;
+          }
+          if (!confirm("Delete " + this.fName + "?")) return;
+          const apiUrl = "/contact/delete/" + this.fId;
+          const config = {
+            headers: { "Content-Type": "multipart/form-data" }
+          }
+          await axios.delete(apiUrl, config)
+            .then(
+              (response) => {
+                if (response.status !== 200) {
+                  console.log('Looks like there was a problem. Status Code: ' + response.status);
+                  return;
+                }
+                this.message = response.data.message
+
+                this.clearForm()
+
+                this.getContacts()
+              }
+            )
+            .catch(function (err) {
+              console.log('Fetch Error :-S', err.response.data.message);
+
+              this.message = err.response.data.message
+            });
+        },
+        clearForm() {
+          this.fId = 0
+          this.fName = ""
+          this.fPhoneNo = ""
+          this.message = "";
+        }
+      },
+      mounted() {
+        this.getContacts()
+      },
+    }).mount('#app')
+  </script>
+</body>
+
+</html>
